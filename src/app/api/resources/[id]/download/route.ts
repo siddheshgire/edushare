@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mockStore } from "@/lib/store/mock-store";
+import { getDocumentDownloadUrl } from "@/lib/supabase/storage";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 export async function POST(
   req: NextRequest,
@@ -15,6 +17,14 @@ export async function POST(
   // Increment download count
   const newCount = mockStore.incrementDownload(id);
 
+  let cloudSignedUrl: string | null = null;
+  if (isSupabaseConfigured && resource.storage_path) {
+    const signedRes = await getDocumentDownloadUrl(resource.storage_path);
+    if (signedRes.success && signedRes.signedUrl) {
+      cloudSignedUrl = signedRes.signedUrl;
+    }
+  }
+
   return NextResponse.json({
     success: true,
     data: {
@@ -22,7 +32,8 @@ export async function POST(
       fileName: resource.file_name,
       fileType: resource.file_type,
       downloadCount: newCount,
-      downloadUrl: `/api/resources/${id}/download?stream=true`,
+      downloadUrl: cloudSignedUrl || `/api/resources/${id}/download?stream=true`,
+      isCloudStorage: Boolean(cloudSignedUrl),
     },
   });
 }
@@ -41,8 +52,17 @@ export async function GET(
   // Increment count on actual download
   mockStore.incrementDownload(id);
 
-  // Return a sample academic text/PDF payload
-  const content = resource.content_text || `${resource.title}\n${resource.description}`;
+  if (isSupabaseConfigured && resource.storage_path) {
+    const signedRes = await getDocumentDownloadUrl(resource.storage_path);
+    if (signedRes.success && signedRes.signedUrl) {
+      return NextResponse.redirect(signedRes.signedUrl);
+    }
+  }
+
+  // Return formatted academic payload
+  const content =
+    resource.content_text ||
+    `=== EDUSHARE ACADEMIC RESOURCE ===\nTitle: ${resource.title}\nSubject: ${resource.subject_name}\nSemester: ${resource.semester}\nCategory: ${resource.category}\n\n${resource.description}`;
 
   return new NextResponse(content, {
     headers: {

@@ -11,6 +11,8 @@ import {
   Clock,
   Eye,
   History,
+  Database,
+  RefreshCw,
 } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -26,10 +28,31 @@ export default function AdminDashboardPage() {
   const [reports, setReports] = useState<ResourceReport[]>([]);
   const [moderationLogs, setModerationLogs] = useState<ModerationLog[]>([]);
 
+  // Live Supabase Health State
+  const [supabaseHealth, setSupabaseHealth] = useState<any | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState<boolean>(false);
+
   // Moderation state
   const [rejectingResource, setRejectingResource] = useState<Resource | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [activeTab, setActiveTab] = useState<"pending" | "reports" | "all" | "logs">("pending");
+
+  const checkSupabaseHealth = async () => {
+    try {
+      setIsCheckingHealth(true);
+      const res = await fetch("/api/health/supabase");
+      const data = await res.json();
+      setSupabaseHealth(data);
+    } catch {
+      setSupabaseHealth({
+        status: "error",
+        connected: false,
+        message: "Failed to query /api/health/supabase",
+      });
+    } finally {
+      setIsCheckingHealth(false);
+    }
+  };
 
   const loadData = () => {
     const user = mockStore.getCurrentUser();
@@ -55,6 +78,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     loadData();
+    checkSupabaseHealth();
   }, []);
 
   const handleApprove = (resourceId: string) => {
@@ -180,6 +204,71 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         )}
+
+        {/* Live Cloud Database & Storage Diagnostic Bar */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                  supabaseHealth?.connected
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                <Database className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-slate-900">
+                    Database & Storage Architecture Status
+                  </h3>
+                  <span
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                      supabaseHealth?.connected
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-amber-50 text-amber-700 border-amber-200"
+                    }`}
+                  >
+                    {supabaseHealth?.connected
+                      ? `Live Supabase Cloud Connected (${supabaseHealth.latencyMs}ms)`
+                      : "Local In-Memory Reactive Store (Offline Mode)"}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {supabaseHealth?.message ||
+                    "Running zero-config in-memory state. Enter Supabase credentials in .env.local to link live PostgreSQL."}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={checkSupabaseHealth}
+              disabled={isCheckingHealth}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition active:scale-95 disabled:opacity-50 whitespace-nowrap"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${isCheckingHealth ? "animate-spin text-blue-600" : ""}`}
+              />
+              <span>{isCheckingHealth ? "Pinging Cloud..." : "Test Connection"}</span>
+            </button>
+          </div>
+
+          {/* Setup details when in offline mode */}
+          {!supabaseHealth?.connected && (
+            <div className="mt-2 pt-3 border-t border-slate-100 text-xs text-slate-600 space-y-1.5 bg-slate-50/60 p-3 rounded-lg border">
+              <p className="font-semibold text-slate-800 flex items-center gap-1">
+                <span>Connecting Your Real Supabase Cloud Project:</span>
+              </p>
+              <ol className="list-decimal list-inside space-y-0.5 text-[11px] text-slate-600">
+                <li>Create a free PostgreSQL project at <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-blue-600 underline">supabase.com</a>.</li>
+                <li>Copy <code className="bg-slate-200 px-1 py-0.5 rounded">NEXT_PUBLIC_SUPABASE_URL</code> and <code className="bg-slate-200 px-1 py-0.5 rounded">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> into your <code className="bg-slate-200 px-1 py-0.5 rounded">.env.local</code>.</li>
+                <li>Execute migrations from <code className="bg-slate-200 px-1 py-0.5 rounded">supabase/migrations/</code> in the Supabase SQL editor.</li>
+                <li>Create storage bucket <code className="bg-slate-200 px-1 py-0.5 rounded">edushare-resources</code>.</li>
+              </ol>
+            </div>
+          )}
+        </div>
 
         {/* Navigation Tabs */}
         <div className="flex items-center gap-2 border-b border-slate-200 text-xs font-semibold">
