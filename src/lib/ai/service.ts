@@ -5,15 +5,18 @@ interface AIServiceConfig {
   model: string;
 }
 
-const config: AIServiceConfig = {
-  apiKey: process.env.AI_PROVIDER_API_KEY || process.env.GEMINI_API_KEY,
-  model: process.env.AI_MODEL_NAME || "gemini-1.5-flash",
-};
+export function getAIConfig(): AIServiceConfig {
+  return {
+    apiKey: process.env.AI_PROVIDER_API_KEY || process.env.GEMINI_API_KEY,
+    model: process.env.AI_MODEL_NAME || "gemini-2.5-flash",
+  };
+}
 
 // In-memory cache for document summaries to optimize API calls and prevent redundant charges
 const summaryCache = new Map<string, AISummary>();
 
 export function isAIAssistantConfigured(): boolean {
+  const config = getAIConfig();
   return Boolean(config.apiKey && !config.apiKey.includes("placeholder"));
 }
 
@@ -37,6 +40,7 @@ export async function generateDocumentSummary(
     return { success: true, summary: summaryCache.get(resourceId)! };
   }
 
+  const config = getAIConfig();
   const sanitizedDoc = sanitizeInput(documentText).slice(0, 30000);
 
   if (!isAIAssistantConfigured()) {
@@ -162,6 +166,7 @@ export async function answerDocumentQuestion(
 ): Promise<{ success: boolean; answer?: string; citations?: { section: string; page?: number }[]; message?: string }> {
   const sanitizedDoc = sanitizeInput(documentText).slice(0, 30000);
   const sanitizedQuestion = sanitizeInput(question).slice(0, 500);
+  const config = getAIConfig();
 
   if (!isAIAssistantConfigured()) {
     // Intelligent keyword grounder for offline demo
