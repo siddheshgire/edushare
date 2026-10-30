@@ -83,7 +83,7 @@ Production build verification:
 
 ## 5. Live Prototype & Submission Links
 
-- **GitHub Repository**: Ready for import (`https://github.com/<your-username>/edushare`)
+- **GitHub Repository**: [https://github.com/siddheshgire/edushare](https://github.com/siddheshgire/edushare)
 - **Live Deployment Platform**: Vercel (`https://edushare-<project-hash>.vercel.app`)
 - **Database Engine**: Supabase Cloud (`https://fnymkseufbxzjdclsyww.supabase.co`)
 - **AI Core**: Google Gemini 2.5 Flash Model
